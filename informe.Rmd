@@ -1,0 +1,93 @@
+---
+title: "Informe técnico - Confianza social e institucional (ESS Round 11)"
+author: "Karen Minchaca De los Reyes"
+date: "`r paste0(format(Sys.Date(), '%d'), ' de ', c('enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre')[as.integer(format(Sys.Date(), '%m'))], ' de ', format(Sys.Date(), '%Y'))`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+
+ess <- read.csv("../data/processed/ess_limpio.csv", stringsAsFactors = FALSE)
+```
+
+## Introducción
+
+Este informe resume los hallazgos del proyecto, hecho con el European
+Social Survey (Round 11). Sigo los objetivos que planteé para este reto:
+comparar entre países la confianza social, la confianza institucional y
+el comportamiento digital de los participantes.
+
+Los datos ya pasaron por `scripts/01_carga_depuracion.R`, que convierte
+en NA los códigos especiales del cuestionario (77, 88, 99, entre otros)
+antes de cualquier cálculo.
+
+## Tabla resumen de indicadores
+
+Para los 10 países con más participantes, esta es la confianza
+interpersonal y en el parlamento promedio.
+
+```{r tabla-resumen}
+resumen_paises <- ess %>%
+  filter(!is.na(ppltrst), !is.na(trstprl)) %>%
+  group_by(cntry) %>%
+  summarise(
+    n_participantes = n(),
+    confianza_interpersonal_media = round(mean(ppltrst, na.rm = TRUE), 2),
+    confianza_parlamento_media = round(mean(trstprl, na.rm = TRUE), 2)
+  ) %>%
+  arrange(desc(n_participantes)) %>%
+  head(10)
+
+kable(resumen_paises,
+      col.names = c("País", "Participantes", "Confianza interpersonal (media)",
+                    "Confianza en el parlamento (media)"))
+```
+
+Austria (AT) tiene la confianza más alta en ambas dimensiones de los
+10 países con más respuestas, y Bulgaria (BG) y Ucrania (UA) las más
+bajas. En general los que confían más en la gente también confían más
+en el parlamento, algo que ya había visto en el Reto 1 (r = 0.36 entre
+`ppltrst` y `trstprl`).
+
+## Gráfico principal
+
+Este gráfico cruza ambas variables con un mapa de calor de frecuencias,
+retomando el análisis del Reto 1.
+
+```{r grafico-principal, fig.width=6, fig.height=4.5}
+ess_rel <- ess %>% filter(!is.na(ppltrst), !is.na(trstprl))
+
+ggplot(ess_rel, aes(x = ppltrst, y = trstprl)) +
+  geom_bin2d(binwidth = c(1, 1)) +
+  scale_fill_gradient(low = "#f0e6f6", high = "#4A235A", name = "Nº de\nparticipantes") +
+  labs(
+    title = "Relación entre confianza interpersonal e institucional",
+    x = "Confianza interpersonal (ppltrst)",
+    y = "Confianza en el parlamento (trstprl)"
+  ) +
+  theme_minimal()
+```
+
+La correlación de Pearson sobre los datos depurados es de
+`r round(cor(ess_rel$ppltrst, ess_rel$trstprl, use = "complete.obs"), 3)`.
+Es una asociación positiva pero moderada, no muy fuerte: se nota un grupo
+grande en la esquina de abajo a la izquierda del mapa (gente que no
+confía en nadie ni en nada), y otro grupo más disperso en la zona media
+alta donde ambas confianzas suben juntas.
+
+## Conclusiones principales
+
+El dataset depurado tiene `r nrow(ess)` registros, de los cuales
+`r sum(!is.na(ess$ppltrst) & !is.na(ess$trstprl))` tienen información
+válida en ambas variables de confianza.
+
+La relación entre confianza interpersonal e institucional se confirma,
+pero con r = 0.36 queda claro que no es la única variable que explica la
+confianza institucional. El país de residencia probablemente pesa más de
+lo que este análisis puede captar por sí solo.

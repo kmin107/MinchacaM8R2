@@ -1,0 +1,77 @@
+---
+title: "Confianza social e institucional"
+subtitle: "European Social Survey - Round 11"
+author: "Karen Minchaca De los Reyes"
+date: "`r paste0(format(Sys.Date(), '%d'), ' de ', c('enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre')[as.integer(format(Sys.Date(), '%m'))], ' de ', format(Sys.Date(), '%Y'))`"
+output:
+  beamer_presentation:
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+
+ess <- read.csv("../data/processed/ess_limpio.csv", stringsAsFactors = FALSE)
+```
+
+## Objetivo del proyecto
+
+Explorar, con un dashboard interactivo, las diferencias en confianza
+social, confianza institucional y comportamiento digital entre los
+países del European Social Survey (Round 11).
+
+- Dataset: ESS Round 11, Edition 4
+- `r nrow(ess)` registros, 30 países
+- Variables principales: `ppltrst`, `trstprl`, `trstplc`, `netusoft`, `vote`
+
+## Objetivos específicos
+
+- Confianza interpersonal por país
+- Confianza institucional (parlamento y policía) por país
+- Relación entre confianza interpersonal e institucional
+- Comportamiento digital y participación electoral por país
+
+## Tabla resumen
+
+```{r tabla}
+resumen_paises <- ess %>%
+  filter(!is.na(ppltrst), !is.na(trstprl)) %>%
+  group_by(cntry) %>%
+  summarise(
+    n = n(),
+    confianza_interpersonal = round(mean(ppltrst, na.rm = TRUE), 2),
+    confianza_parlamento = round(mean(trstprl, na.rm = TRUE), 2)
+  ) %>%
+  arrange(desc(n)) %>%
+  head(6)
+
+kable(resumen_paises,
+      col.names = c("País", "N", "Conf. interpersonal", "Conf. parlamento"))
+```
+
+## Relación entre confianza interpersonal e institucional
+
+```{r grafico, fig.width=5, fig.height=3.5}
+ess_rel <- ess %>% filter(!is.na(ppltrst), !is.na(trstprl))
+
+ggplot(ess_rel, aes(x = ppltrst, y = trstprl)) +
+  geom_bin2d(binwidth = c(1, 1)) +
+  scale_fill_gradient(low = "#f0e6f6", high = "#4A235A", name = "N") +
+  labs(x = "Confianza interpersonal", y = "Confianza en el parlamento") +
+  theme_minimal(base_size = 11)
+```
+
+## Hallazgo principal
+
+- Pearson: `r round(cor(ess_rel$ppltrst, ess_rel$trstprl, use = "complete.obs"), 3)`, asociación positiva pero moderada
+- Grupo grande sin confianza en nada (esquina inferior izquierda)
+- Austria y Alemania encabezan ambas confianzas; Bulgaria y Ucrania, las más bajas
+
+## Próximos pasos
+
+- Ya se agregó el panel de policía (`trstplc`) al dashboard
+- Falta ver `pplfair` y `pplhlp`
+- Cruzar esto con edad y nivel educativo, si el tiempo alcanza
